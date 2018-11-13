@@ -1,0 +1,78 @@
+---
+title: "PAM-Clustering"
+author: "Sarthak Manchanda"
+date: "13/11/2018"
+output: html_document
+---
+
+## PAM Clustering
+
+```{r setup, include=FALSE}
+library(cluster)
+
+#install.packages("dplyr")
+library(dplyr)
+
+#install.packages("ggplot2")
+library(ggplot2)
+
+#install.packages("readr")
+library(readr)
+
+#install.packages("Rtsne")
+library(Rtsne)
+
+# load data 
+df <- read.csv2("../dataset/bank/bank.csv")
+
+
+```
+
+```{r}
+
+# Compute Gower Distance
+gower_dist <- daisy(df, metric="gower")
+gower_mat <- as.matrix(gower_dist)
+
+# print most similar clients 
+df[which(gower_mat == min(gower_mat[gower_mat != min(gower_mat)]), arr.ind = TRUE)[1,],]
+
+sil_width <- c(NA)
+for(i in 2:8) {
+  pam_fit <- pam(gower_dist, diss = TRUE, k = i)
+  sil_width[i] <- pam_fit$silinfo$avg.width
+}
+
+plot(1:8, sil_width, xlab="Numeber of clusters", ylab="Silhouette Width")
+lines(1:8, sil_width)
+
+summary(df)
+
+# Let's pick 3 clusters as it covers the whole in range 
+```
+```{r}
+
+# K is chosen based on the above results of maximum range coverage with least k
+k <- 3 
+
+pam_fit <- pam(gower_dist, diss = TRUE, k)
+
+# try pam_fit$mediods as well
+pam_results <- df %>% mutate(cluster = pam_fit$clustering) %>% group_by(cluster) %>% do(cluster_summary = summary(.))
+
+pam_results$cluster_summary
+
+
+
+```
+```{r}
+
+tsne_obj <- Rtsne(gower_dist, is_distance = TRUE)
+
+tsne_data <- tsne_obj$Y %>% data.frame() %>% setNames(c("X","Y")) %>% mutate(cluster = factor(pam_fit$clustering))
+
+ggplot(aes(x = X, y = Y), data = tsne_data) + geom_point(aes(color = cluster))
+
+```
+
+
